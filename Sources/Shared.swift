@@ -34,6 +34,9 @@ import Foundation
 import CoreLocation
 import MapKit
 import SwiftyJSON
+#if os(watchOS)
+import WatchKit
+#endif
 
 /// Thread-safe list
 /// All functions and proprierties are thread-safe.
@@ -291,9 +294,15 @@ public class TimeoutManager {
 public extension CLLocationManager {
 	
 	/// Returns the current state of heading services for this device.
-	public var headingState: HeadingServiceState {
-		return (CLLocationManager.headingAvailable() ? .available : .unavailable)
-	}
+    #if os(watchOS)
+    public var headingState: HeadingServiceState {
+        return .unavailable
+    }
+    #else
+    public var headingState: HeadingServiceState {
+        return (CLLocationManager.headingAvailable() ? .available : .unavailable)
+    }
+    #endif
 	
 	/// Return `true` if host application has background location capabilities enabled
 	public static var hasBackgroundCapabilities: Bool {
@@ -306,34 +315,40 @@ public extension CLLocationManager {
 	/// Return the highest authorization level based upon the value added info applications'
 	/// Info.plist file.
 	public static var authorizationLevelFromInfoPlist: AuthorizationLevel {
-		let osVersion = (UIDevice.current.systemVersion as NSString).floatValue
-
-		if osVersion < 11 {
-			let hasAlwaysKey = 	hasPlistValue(forKey: "NSLocationAlwaysUsageDescription") &&
-								hasPlistValue(forKey: "NSLocationAlwaysAndWhenInUseUsageDescription")
-			let hasWhenInUse = hasPlistValue(forKey: "NSLocationWhenInUseUsageDescription")
-			if hasAlwaysKey {
-				return .always
-			} else if hasWhenInUse {
-				return .whenInUse
-			} else {
-				// At least one of the keys NSLocationAlwaysUsageDescription or NSLocationWhenInUseUsageDescription MUST
-				// be present in the Info.plist file to use location services on iOS 8+.
-				fatalError("To use location services in iOS 8+, your Info.plist must provide a value for either NSLocationWhenInUseUsageDescription or NSLocationAlwaysUsageDescription.")
-			}
-		} else {
-			// In iOS11 stuff are changed again
+        var isWatchOS = false
+        #if os(watchOS)
+        isWatchOS = true
+        let osVersion = (WKInterfaceDevice.current().systemVersion as NSString).floatValue
+        #else
+        let osVersion = (UIDevice.current.systemVersion as NSString).floatValue
+        #endif
+        
+		if (osVersion >= 11 || isWatchOS) {
+            // In iOS11 stuff are changed again
             let hasAlwaysAndWhenInUse = hasPlistValue(forKey:"NSLocationAlwaysAndWhenInUseUsageDescription")
             let hasWhenInUse = hasPlistValue(forKey: "NSLocationWhenInUseUsageDescription")
-			if hasAlwaysAndWhenInUse && hasWhenInUse {
-				return .always
+            if hasAlwaysAndWhenInUse && hasWhenInUse {
+                return .always
             } else if hasWhenInUse {
                 return .whenInUse
-			} else {
-				// Key NSLocationWhenInUseUsageDescription MUST be present in the Info.plist file to use location services on iOS 11
+            } else {
+                // Key NSLocationWhenInUseUsageDescription MUST be present in the Info.plist file to use location services on iOS 11
                 // For Always access NSLocationAlwaysAndWhenInUseUsageDescription must also be present.
-				fatalError("To use location services in iOS 11+, your Info.plist must provide a value for NSLocationAlwaysUsageDescription and if requesting always access you must provide a value for  NSLocationAlwaysAndWhenInUseUsageDescription as well.")
-			}
+                fatalError("To use location services in iOS 11+, your Info.plist must provide a value for NSLocationAlwaysUsageDescription and if requesting always access you must provide a value for  NSLocationAlwaysAndWhenInUseUsageDescription as well.")
+            }
+		} else {
+            let hasAlwaysKey =     hasPlistValue(forKey: "NSLocationAlwaysUsageDescription") &&
+                hasPlistValue(forKey: "NSLocationAlwaysAndWhenInUseUsageDescription")
+            let hasWhenInUse = hasPlistValue(forKey: "NSLocationWhenInUseUsageDescription")
+            if hasAlwaysKey {
+                return .always
+            } else if hasWhenInUse {
+                return .whenInUse
+            } else {
+                // At least one of the keys NSLocationAlwaysUsageDescription or NSLocationWhenInUseUsageDescription MUST
+                // be present in the Info.plist file to use location services on iOS 8+.
+                fatalError("To use location services in iOS 8+, your Info.plist must provide a value for either NSLocationWhenInUseUsageDescription or NSLocationAlwaysUsageDescription.")
+            }
 		}
 	}
 	
@@ -343,14 +358,20 @@ public extension CLLocationManager {
 	/// - Parameter level: level you want to set
 	/// - Returns: `true` if valid
 	public static func validateInfoPlistRequiredKeys(forLevel level: AuthorizationLevel) -> Bool {
-		let osVersion = (UIDevice.current.systemVersion as NSString).floatValue
+        var isWatchOS = false
+        #if os(watchOS)
+        isWatchOS = true
+        let osVersion = (WKInterfaceDevice.current().systemVersion as NSString).floatValue
+        #else
+        let osVersion = (UIDevice.current.systemVersion as NSString).floatValue
+        #endif
+        
 		switch level {
 		case .always:
-			if osVersion < 11 {
-				return 	(hasPlistValue(forKey: "NSLocationAlwaysUsageDescription") ||
-						hasPlistValue(forKey: "NSLocationAlwaysAndWhenInUseUsageDescription"))
-				
-			}
+            if (osVersion < 11 && !isWatchOS) {
+                return     (hasPlistValue(forKey: "NSLocationAlwaysUsageDescription") ||
+                    hasPlistValue(forKey: "NSLocationAlwaysAndWhenInUseUsageDescription"))
+            }
 			return hasPlistValue(forKey: "NSLocationAlwaysAndWhenInUseUsageDescription") &&
                    hasPlistValue(forKey: "NSLocationWhenInUseUsageDescription")
 		case .whenInUse:

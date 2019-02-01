@@ -34,6 +34,8 @@ import Foundation
 import CoreLocation
 import MapKit
 
+#if !os(watchOS)
+
 public class HeadingRequest: Request, Equatable, Hashable {
 	
 	/// Typealias for accuracy, measured in degree
@@ -107,3 +109,5 @@ public class HeadingRequest: Request, Equatable, Hashable {
 		return minElapsed && minAccuracy
 	}
 }
+
+#endif

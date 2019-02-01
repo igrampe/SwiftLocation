@@ -106,7 +106,9 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	private var locationRequests = SafeList<LocationRequest>()
 	
 	/// Current queued heading requests
+    #if !os(watchOS)
 	private var headingRequests = SafeList<HeadingRequest>()
+    #endif
 	
 	/// Geocoder requests
 	internal var geocoderRequests = SafeList<GeocoderRequest>()
@@ -121,7 +123,9 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	public private(set) var isUpdatingHeading: Bool = false
 	
 	/// `true` if service is currenlty monitoring significant location changes
+    #if !os(watchOS)
 	public private(set) var isMonitoringSignificantLocationChanges = false
+    #endif
 	
 	/// It is possible to force enable background location fetch even if your set any kind of Authorizations
 	public var backgroundLocationUpdates: Bool {
@@ -150,7 +154,9 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	}
 	
 	/// Last measured heading value
+    #if !os(watchOS)
 	public private(set) var currentHeading: CLHeading? = nil
+    #endif
 	
 	/// Last occurred error
 	public private(set) var updateFailed: Bool = false
@@ -269,6 +275,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	///   - onUpdate: update callback
 	///   - onFail: failure callback
 	/// - Returns: request
+    #if !os(watchOS)
 	@discardableResult
 	public func subscribeSignificantLocations(onUpdate: @escaping LocationRequest.Success, onFail: @escaping LocationRequest.Failure) -> LocationRequest {
 		assert(Thread.isMainThread, "Locator functions should be called from main thread")
@@ -279,6 +286,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 		self.addLocation(request)
 		return request
 	}
+    #endif
 	
 	// MARK: REVERSE GEOCODING
 	
@@ -363,6 +371,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	///   - onUpdate: update succeded callback
 	///   - onFail: failure callback
 	/// - Returns: request
+    #if !os(watchOS)
 	@discardableResult
 	public func subscribeHeadingUpdates(accuracy: HeadingRequest.AccuracyDegree?, minInterval: TimeInterval? = nil,
 	                                    onUpdate: @escaping HeadingRequest.Success, onFail: @escaping HeadingRequest.Failure) -> HeadingRequest {
@@ -374,6 +383,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 		self.addHeadingRequest(request)
 		return request
 	}
+    #endif
 	
 	/// Stop running request
 	///
@@ -383,9 +393,11 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 		if let r = request as? LocationRequest {
 			return self.stopLocationRequest(r)
 		}
+        #if !os(watchOS)
 		if let r = request as? HeadingRequest {
 			return self.stopHeadingRequest(r)
 		}
+        #endif
 		return false
 	}
 	
@@ -394,6 +406,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	/// Add heading request to queue
 	///
 	/// - Parameter request: request
+    #if !os(watchOS)
 	private func addHeadingRequest(_ request: HeadingRequest) {
 		let state = self.manager.headingState
 		guard state == .available else {
@@ -406,33 +419,40 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 		self.headingRequests.add(request)
 		self.startUpdatingHeadingIfNeeded()
 	}
+    #endif
 	
 	/// Start updating heading service if needed
+    #if !os(watchOS)
 	private func startUpdatingHeadingIfNeeded() {
 		guard self.headingRequests.count > 0 else { return }
 		self.manager.startUpdatingHeading()
 		self.isUpdatingHeading = true
 	}
+    #endif
 	
 	/// Stop heading services if possible
+    #if !os(watchOS)
 	private func stopUpdatingHeadingIfPossible() {
 		if self.headingRequests.count == 0 {
 			self.manager.stopUpdatingHeading()
 			self.isUpdatingHeading = false
 		}
 	}
+    #endif
 	
 	
 	/// Remove heading request
 	///
 	/// - Parameter request: request to remove
 	/// - Returns: `true` if removed
+    #if !os(watchOS)
 	@discardableResult
 	private func stopHeadingRequest(_ request: HeadingRequest) -> Bool {
 		let removed = self.headingRequests.remove(request)
 		self.stopUpdatingHeadingIfPossible()
 		return removed
 	}
+    #endif
 	
 	// MARK: LOCATION HELPER FUNCTIONS
 	
@@ -474,7 +494,9 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 			
 			self.startUpdatingLocationIfNeeded()
 		case .significant:
+            #if !os(watchOS)
 			self.startMonitoringSignificantLocationChangesIfNeeded()
+            #endif
 		}
 		
 		// Add to the queue
@@ -512,6 +534,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	}
 	
 	/// Inform CLLocationManager to start monitoring significant location changes.
+    #if !os(watchOS)
 	internal func startMonitoringSignificantLocationChangesIfNeeded() {
 		// request authorization if needed
 		self.requestAuthorizationIfNeeded()
@@ -521,8 +544,8 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 			self.manager.startMonitoringSignificantLocationChanges()
 			self.isMonitoringSignificantLocationChanges = true
 		}
-		
 	}
+    #endif
 	
 	/// Return active requests excluding the one with given mode
 	///
@@ -654,7 +677,9 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 			// Stop if no other location requests are running
 			self.stopUpdatingLocationIfPossible()
 		case .significant:
+            #if !os(watchOS)
 			self.stopMonitoringSignificantLocationChangesIfPossible()
+            #endif
 		}
 	}
 	
@@ -672,6 +697,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 	
 	/// Checks to see if there are any outsanding significant location request in queue.
 	/// If not we can stop monitoring for significant location changes and conserve device's battery.
+    #if !os(watchOS)
 	private func stopMonitoringSignificantLocationChangesIfPossible() {
 		let requests = self.activeLocationRequest(forMode: .significant)
 		if requests.count == 0 { // stop
@@ -679,6 +705,7 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 			self.isMonitoringSignificantLocationChanges = false
 		}
 	}
+    #endif
 	
 	// MARK: CLLocationManager Delegates
 	
@@ -729,11 +756,14 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 		}
 	}
 	
+    #if !os(watchOS)
 	public func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
 		self.currentHeading = newHeading
 		self.processRecurringHeadingRequests()
 	}
+    #endif
 	
+    #if !os(watchOS)
 	private func processRecurringHeadingRequests() {
 		let h = self.currentHeading
 		DispatchQueue.main.async {
@@ -750,4 +780,5 @@ public class LocatorManager: NSObject, CLLocationManagerDelegate {
 			}
 		}
 	}
+    #endif
 }
